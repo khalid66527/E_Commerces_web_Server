@@ -23,6 +23,7 @@ const client = new MongoClient(uri, {
 
 // Export database reference for route handlers to use
 export const db = client.db('e-commerce');
+export const productsCollection = db.collection('products');
 
 async function run() {
   try {
