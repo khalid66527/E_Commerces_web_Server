@@ -62,6 +62,33 @@ app.get('/api/products', async (req: Request, res: Response) => {
   }
 });
 
+// Get a single product by ID
+app.get('/api/products/:id', async (req: Request, res: Response) => {
+  try {
+    const { productsCollection } = await import('./server');
+    const { id } = req.params;
+    if (!id) {
+      res.status(400).json({ success: false, message: 'Product ID is required' });
+      return;
+    }
+    const product = await productsCollection.findOne({ _id: new ObjectId(id as string) });
+    if (!product) {
+      res.status(404).json({ success: false, message: 'Product not found' });
+      return;
+    }
+    res.status(200).json({
+      success: true,
+      message: 'Product fetched successfully',
+      data: product,
+    });
+  } catch (error: any) {
+    res.status(500).json({
+      success: false,
+      message: error?.message || 'Failed to fetch product',
+    });
+  }
+});
+
 // Delete a product
 app.delete('/api/products/:id', async (req: Request, res: Response) => {
   try {
