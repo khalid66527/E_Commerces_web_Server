@@ -26,6 +26,7 @@ export const db = client.db(process.env.DB_NAME || 'e_commerce_web');
 export const productsCollection = db.collection('products');
 export const usersCollection = db.collection('user');
 export const wishlistCollection = db.collection('wishlist');
+export const cartCollection = db.collection('cart');
 
 async function run() {
   try {
