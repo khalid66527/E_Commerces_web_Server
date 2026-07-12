@@ -193,6 +193,112 @@ app.delete('/api/users/:id', async (req: Request, res: Response) => {
   }
 });
 
+// Add to wishlist
+app.post('/api/wishlist', async (req: Request, res: Response) => {
+  try {
+    const { wishlistCollection } = await import('./server');
+    const { email, productId, product } = req.body;
+    
+    if (!email || !productId) {
+      res.status(400).json({
+        success: false,
+        message: 'Email and Product ID are required',
+      });
+      return;
+    }
+
+    // Check if already exists in wishlist for this user
+    const existing = await wishlistCollection.findOne({ email, productId });
+    if (existing) {
+      res.status(200).json({
+        success: true,
+        message: 'Product is already in wishlist',
+        data: existing,
+      });
+      return;
+    }
+
+    const newWishlistItem = {
+      email,
+      productId,
+      title: product.title,
+      brand: product.brand,
+      price: product.price,
+      imageUrl: product.imageUrl,
+      category: product.category,
+      description: product.description,
+      specifications: product.specifications || {},
+      addedAt: new Date().toISOString()
+    };
+
+    const result = await wishlistCollection.insertOne(newWishlistItem);
+    res.status(201).json({
+      success: true,
+      message: 'Product added to wishlist successfully',
+      data: { _id: result.insertedId, ...newWishlistItem },
+    });
+  } catch (error: any) {
+    res.status(500).json({
+      success: false,
+      message: error?.message || 'Failed to add to wishlist',
+    });
+  }
+});
+
+// Get wishlist items by user email
+app.get('/api/wishlist', async (req: Request, res: Response) => {
+  try {
+    const { wishlistCollection } = await import('./server');
+    const { email } = req.query;
+    
+    if (!email) {
+      res.status(400).json({
+        success: false,
+        message: 'User email is required',
+      });
+      return;
+    }
+
+    const items = await wishlistCollection.find({ email: email as string }).toArray();
+    res.status(200).json({
+      success: true,
+      message: 'Wishlist fetched successfully',
+      data: items,
+    });
+  } catch (error: any) {
+    res.status(500).json({
+      success: false,
+      message: error?.message || 'Failed to fetch wishlist',
+    });
+  }
+});
+
+// Delete from wishlist
+app.delete('/api/wishlist/:id', async (req: Request, res: Response) => {
+  try {
+    const { wishlistCollection } = await import('./server');
+    const { id } = req.params;
+    if (!id) {
+      res.status(400).json({ success: false, message: 'Wishlist Item ID is required' });
+      return;
+    }
+    const result = await wishlistCollection.deleteOne({ _id: new ObjectId(id as string) });
+    if (result.deletedCount === 0) {
+      res.status(404).json({ success: false, message: 'Wishlist item not found' });
+      return;
+    }
+    res.status(200).json({
+      success: true,
+      message: 'Product removed from wishlist successfully',
+    });
+  } catch (error: any) {
+    res.status(500).json({
+      success: false,
+      message: error?.message || 'Failed to delete wishlist item',
+    });
+  }
+});
+
 // 404 Route handler
 app.use((req: Request, res: Response) => {
   res.status(404).json({

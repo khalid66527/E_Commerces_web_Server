@@ -25,6 +25,7 @@ const client = new MongoClient(uri, {
 export const db = client.db(process.env.DB_NAME || 'e_commerce_web');
 export const productsCollection = db.collection('products');
 export const usersCollection = db.collection('user');
+export const wishlistCollection = db.collection('wishlist');
 
 async function run() {
   try {
