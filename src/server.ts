@@ -28,6 +28,7 @@ export const usersCollection = db.collection('user');
 export const wishlistCollection = db.collection('wishlist');
 export const cartCollection = db.collection('cart');
 export const pursessCollection = db.collection('pursess');
+export const contactsCollection = db.collection('contacts');
 
 async function run() {
   try {

@@ -484,6 +484,111 @@ app.get('/api/purchase-history', async (req: Request, res: Response) => {
   }
 });
 
+// Create contact message
+app.post('/api/contacts', async (req: Request, res: Response) => {
+  try {
+    const { contactsCollection } = await import('./server');
+    const { name, email, subject, message } = req.body;
+
+    if (!email || !message) {
+      res.status(400).json({ success: false, message: 'Email and Message are required' });
+      return;
+    }
+
+    const contactItem = {
+      name: name || '',
+      email,
+      subject: subject || 'No Subject',
+      message,
+      reply: '',
+      repliedAt: null,
+      createdAt: new Date().toISOString()
+    };
+
+    const result = await contactsCollection.insertOne(contactItem);
+    res.status(201).json({
+      success: true,
+      message: 'Contact message submitted successfully',
+      data: { _id: result.insertedId, ...contactItem }
+    });
+  } catch (error: any) {
+    res.status(500).json({ success: false, message: error?.message || 'Failed to submit contact message' });
+  }
+});
+
+// Get all contact messages for admin
+app.get('/api/contacts', async (req: Request, res: Response) => {
+  try {
+    const { contactsCollection } = await import('./server');
+    const contacts = await contactsCollection.find({}).toArray();
+    res.status(200).json({
+      success: true,
+      message: 'Contact messages fetched successfully',
+      data: contacts
+    });
+  } catch (error: any) {
+    res.status(500).json({ success: false, message: error?.message || 'Failed to fetch contact messages' });
+  }
+});
+
+// Get contact messages by user email
+app.get('/api/contacts/user', async (req: Request, res: Response) => {
+  try {
+    const { contactsCollection } = await import('./server');
+    const { email } = req.query;
+
+    if (!email) {
+      res.status(400).json({ success: false, message: 'User email is required' });
+      return;
+    }
+
+    const contacts = await contactsCollection.find({ email: email as string }).toArray();
+    res.status(200).json({
+      success: true,
+      message: 'User contact messages fetched successfully',
+      data: contacts
+    });
+  } catch (error: any) {
+    res.status(500).json({ success: false, message: error?.message || 'Failed to fetch user contact messages' });
+  }
+});
+
+// Reply to contact message
+app.patch('/api/contacts/:id/reply', async (req: Request, res: Response) => {
+  try {
+    const { contactsCollection } = await import('./server');
+    const { id } = req.params;
+    const { reply } = req.body;
+
+    if (!id) {
+      res.status(400).json({ success: false, message: 'Contact message ID is required' });
+      return;
+    }
+
+    const result = await contactsCollection.updateOne(
+      { _id: new ObjectId(id as string) },
+      {
+        $set: {
+          reply: reply || '',
+          repliedAt: new Date().toISOString()
+        }
+      }
+    );
+
+    if (result.matchedCount === 0) {
+      res.status(404).json({ success: false, message: 'Contact message not found' });
+      return;
+    }
+
+    res.status(200).json({
+      success: true,
+      message: 'Reply submitted successfully'
+    });
+  } catch (error: any) {
+    res.status(500).json({ success: false, message: error?.message || 'Failed to submit reply' });
+  }
+});
+
 // 404 Route handler
 app.use((req: Request, res: Response) => {
   res.status(404).json({
