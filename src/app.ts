@@ -456,6 +456,34 @@ app.delete('/api/cart/:id', async (req: Request, res: Response) => {
   }
 });
 
+// Get purchase history by user email
+app.get('/api/purchase-history', async (req: Request, res: Response) => {
+  try {
+    const { pursessCollection } = await import('./server');
+    const { email } = req.query;
+
+    if (!email) {
+      res.status(400).json({
+        success: false,
+        message: 'User email is required',
+      });
+      return;
+    }
+
+    const purchases = await pursessCollection.find({ 'user.email': email as string }).toArray();
+    res.status(200).json({
+      success: true,
+      message: 'Purchase history fetched successfully',
+      data: purchases,
+    });
+  } catch (error: any) {
+    res.status(500).json({
+      success: false,
+      message: error?.message || 'Failed to fetch purchase history',
+    });
+  }
+});
+
 // 404 Route handler
 app.use((req: Request, res: Response) => {
   res.status(404).json({
