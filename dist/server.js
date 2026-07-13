@@ -3,7 +3,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.usersCollection = exports.productsCollection = exports.db = void 0;
+exports.contactsCollection = exports.pursessCollection = exports.cartCollection = exports.wishlistCollection = exports.usersCollection = exports.productsCollection = exports.db = void 0;
 const mongodb_1 = require("mongodb");
 const app_1 = __importDefault(require("./app"));
 const dotenv_1 = __importDefault(require("dotenv"));
@@ -26,6 +26,10 @@ const client = new mongodb_1.MongoClient(uri, {
 exports.db = client.db(process.env.DB_NAME || 'e_commerce_web');
 exports.productsCollection = exports.db.collection('products');
 exports.usersCollection = exports.db.collection('user');
+exports.wishlistCollection = exports.db.collection('wishlist');
+exports.cartCollection = exports.db.collection('cart');
+exports.pursessCollection = exports.db.collection('pursess');
+exports.contactsCollection = exports.db.collection('contacts');
 async function run() {
     try {
         // Connect the client to the server

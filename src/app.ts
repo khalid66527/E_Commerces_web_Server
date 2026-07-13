@@ -1,6 +1,7 @@
 import express, { Application, Request, Response } from 'express';
 import cors from 'cors';
 import { ObjectId } from 'mongodb';
+import { verifyJWT, verifyAdmin, AuthRequest } from './middleware/auth';
 
 const app: Application = express();
 
@@ -16,8 +17,8 @@ app.get('/', (req: Request, res: Response) => {
   });
 });
 
-// Post a product
-app.post('/api/products', async (req: Request, res: Response) => {
+// Post a product (Admin only)
+app.post('/api/products', verifyJWT, verifyAdmin, async (req: AuthRequest, res: Response) => {
   try {
     const { productsCollection } = await import('./server');
     const product = req.body;
@@ -44,7 +45,7 @@ app.post('/api/products', async (req: Request, res: Response) => {
   }
 });
 
-// Get all products
+// Get all products (Public)
 app.get('/api/products', async (req: Request, res: Response) => {
   try {
     const { productsCollection } = await import('./server');
@@ -62,7 +63,7 @@ app.get('/api/products', async (req: Request, res: Response) => {
   }
 });
 
-// Get a single product by ID
+// Get a single product by ID (Public)
 app.get('/api/products/:id', async (req: Request, res: Response) => {
   try {
     const { productsCollection } = await import('./server');
@@ -89,8 +90,8 @@ app.get('/api/products/:id', async (req: Request, res: Response) => {
   }
 });
 
-// Delete a product
-app.delete('/api/products/:id', async (req: Request, res: Response) => {
+// Delete a product (Admin only)
+app.delete('/api/products/:id', verifyJWT, verifyAdmin, async (req: AuthRequest, res: Response) => {
   try {
     const { productsCollection } = await import('./server');
     const { id } = req.params;
@@ -115,8 +116,8 @@ app.delete('/api/products/:id', async (req: Request, res: Response) => {
   }
 });
 
-// Get all users
-app.get('/api/users', async (req: Request, res: Response) => {
+// Get all users (Admin only)
+app.get('/api/users', verifyJWT, verifyAdmin, async (req: AuthRequest, res: Response) => {
   try {
     const { usersCollection } = await import('./server');
     const users = await usersCollection.find({}).toArray();
@@ -133,8 +134,8 @@ app.get('/api/users', async (req: Request, res: Response) => {
   }
 });
 
-// Update user role
-app.patch('/api/users/:id', async (req: Request, res: Response) => {
+// Update user role (Admin only)
+app.patch('/api/users/:id', verifyJWT, verifyAdmin, async (req: AuthRequest, res: Response) => {
   try {
     const { usersCollection } = await import('./server');
     const { id } = req.params;
@@ -167,8 +168,8 @@ app.patch('/api/users/:id', async (req: Request, res: Response) => {
   }
 });
 
-// Delete a user
-app.delete('/api/users/:id', async (req: Request, res: Response) => {
+// Delete a user (Admin only)
+app.delete('/api/users/:id', verifyJWT, verifyAdmin, async (req: AuthRequest, res: Response) => {
   try {
     const { usersCollection } = await import('./server');
     const { id } = req.params;
@@ -193,8 +194,8 @@ app.delete('/api/users/:id', async (req: Request, res: Response) => {
   }
 });
 
-// Add to wishlist
-app.post('/api/wishlist', async (req: Request, res: Response) => {
+// Add to wishlist (JWT verified)
+app.post('/api/wishlist', verifyJWT, async (req: AuthRequest, res: Response) => {
   try {
     const { wishlistCollection } = await import('./server');
     const { email, productId, product } = req.body;
@@ -204,6 +205,12 @@ app.post('/api/wishlist', async (req: Request, res: Response) => {
         success: false,
         message: 'Email and Product ID are required',
       });
+      return;
+    }
+
+    // Verify requesting email matches JWT
+    if (req.user?.email !== email) {
+      res.status(403).json({ success: false, message: 'Forbidden access: Email mismatch' });
       return;
     }
 
@@ -245,8 +252,8 @@ app.post('/api/wishlist', async (req: Request, res: Response) => {
   }
 });
 
-// Get wishlist items by user email
-app.get('/api/wishlist', async (req: Request, res: Response) => {
+// Get wishlist items by user email (JWT verified)
+app.get('/api/wishlist', verifyJWT, async (req: AuthRequest, res: Response) => {
   try {
     const { wishlistCollection } = await import('./server');
     const { email } = req.query;
@@ -256,6 +263,12 @@ app.get('/api/wishlist', async (req: Request, res: Response) => {
         success: false,
         message: 'User email is required',
       });
+      return;
+    }
+
+    // Verify requesting email matches JWT
+    if (req.user?.email !== email) {
+      res.status(403).json({ success: false, message: 'Forbidden access: Email mismatch' });
       return;
     }
 
@@ -273,8 +286,8 @@ app.get('/api/wishlist', async (req: Request, res: Response) => {
   }
 });
 
-// Delete from wishlist
-app.delete('/api/wishlist/:id', async (req: Request, res: Response) => {
+// Delete from wishlist (JWT verified)
+app.delete('/api/wishlist/:id', verifyJWT, async (req: AuthRequest, res: Response) => {
   try {
     const { wishlistCollection } = await import('./server');
     const { id } = req.params;
@@ -282,11 +295,21 @@ app.delete('/api/wishlist/:id', async (req: Request, res: Response) => {
       res.status(400).json({ success: false, message: 'Wishlist Item ID is required' });
       return;
     }
-    const result = await wishlistCollection.deleteOne({ _id: new ObjectId(id as string) });
-    if (result.deletedCount === 0) {
+
+    // First find the item to check ownership
+    const item = await wishlistCollection.findOne({ _id: new ObjectId(id as string) });
+    if (!item) {
       res.status(404).json({ success: false, message: 'Wishlist item not found' });
       return;
     }
+
+    // Verify ownership
+    if (req.user?.email !== item.email) {
+      res.status(403).json({ success: false, message: 'Forbidden access: Ownership mismatch' });
+      return;
+    }
+
+    const result = await wishlistCollection.deleteOne({ _id: new ObjectId(id as string) });
     res.status(200).json({
       success: true,
       message: 'Product removed from wishlist successfully',
@@ -299,8 +322,8 @@ app.delete('/api/wishlist/:id', async (req: Request, res: Response) => {
   }
 });
 
-// Add item to cart
-app.post('/api/cart', async (req: Request, res: Response) => {
+// Add item to cart (JWT verified)
+app.post('/api/cart', verifyJWT, async (req: AuthRequest, res: Response) => {
   try {
     const { cartCollection } = await import('./server');
     const { email, userName, userId, productId, product, quantity } = req.body;
@@ -310,6 +333,12 @@ app.post('/api/cart', async (req: Request, res: Response) => {
         success: false,
         message: 'Email and Product ID are required',
       });
+      return;
+    }
+
+    // Verify email matches JWT
+    if (req.user?.email !== email) {
+      res.status(403).json({ success: false, message: 'Forbidden access: Email mismatch' });
       return;
     }
 
@@ -360,8 +389,8 @@ app.post('/api/cart', async (req: Request, res: Response) => {
   }
 });
 
-// Get user's cart items
-app.get('/api/cart', async (req: Request, res: Response) => {
+// Get user's cart items (JWT verified)
+app.get('/api/cart', verifyJWT, async (req: AuthRequest, res: Response) => {
   try {
     const { cartCollection } = await import('./server');
     const { email } = req.query;
@@ -371,6 +400,12 @@ app.get('/api/cart', async (req: Request, res: Response) => {
         success: false,
         message: 'User email is required',
       });
+      return;
+    }
+
+    // Verify email matches JWT
+    if (req.user?.email !== email) {
+      res.status(403).json({ success: false, message: 'Forbidden access: Email mismatch' });
       return;
     }
 
@@ -388,8 +423,8 @@ app.get('/api/cart', async (req: Request, res: Response) => {
   }
 });
 
-// Update cart item quantity
-app.patch('/api/cart/:id', async (req: Request, res: Response) => {
+// Update cart item quantity (JWT verified)
+app.patch('/api/cart/:id', verifyJWT, async (req: AuthRequest, res: Response) => {
   try {
     const { cartCollection } = await import('./server');
     const { id } = req.params;
@@ -405,15 +440,23 @@ app.patch('/api/cart/:id', async (req: Request, res: Response) => {
       return;
     }
 
-    const result = await cartCollection.updateOne(
-      { _id: new ObjectId(id as string) },
-      { $set: { quantity: Number(quantity) } }
-    );
-
-    if (result.matchedCount === 0) {
+    // Find cart item first to verify ownership
+    const cartItem = await cartCollection.findOne({ _id: new ObjectId(id as string) });
+    if (!cartItem) {
       res.status(404).json({ success: false, message: 'Cart item not found' });
       return;
     }
+
+    // Verify email matches JWT
+    if (req.user?.email !== cartItem.email) {
+      res.status(403).json({ success: false, message: 'Forbidden access: Ownership mismatch' });
+      return;
+    }
+
+    await cartCollection.updateOne(
+      { _id: new ObjectId(id as string) },
+      { $set: { quantity: Number(quantity) } }
+    );
 
     res.status(200).json({
       success: true,
@@ -427,8 +470,8 @@ app.patch('/api/cart/:id', async (req: Request, res: Response) => {
   }
 });
 
-// Delete item from cart
-app.delete('/api/cart/:id', async (req: Request, res: Response) => {
+// Delete item from cart (JWT verified)
+app.delete('/api/cart/:id', verifyJWT, async (req: AuthRequest, res: Response) => {
   try {
     const { cartCollection } = await import('./server');
     const { id } = req.params;
@@ -438,12 +481,20 @@ app.delete('/api/cart/:id', async (req: Request, res: Response) => {
       return;
     }
 
-    const result = await cartCollection.deleteOne({ _id: new ObjectId(id as string) });
-    if (result.deletedCount === 0) {
+    // Find cart item first to verify ownership
+    const cartItem = await cartCollection.findOne({ _id: new ObjectId(id as string) });
+    if (!cartItem) {
       res.status(404).json({ success: false, message: 'Cart item not found' });
       return;
     }
 
+    // Verify email matches JWT
+    if (req.user?.email !== cartItem.email) {
+      res.status(403).json({ success: false, message: 'Forbidden access: Ownership mismatch' });
+      return;
+    }
+
+    await cartCollection.deleteOne({ _id: new ObjectId(id as string) });
     res.status(200).json({
       success: true,
       message: 'Cart item removed successfully',
@@ -456,8 +507,8 @@ app.delete('/api/cart/:id', async (req: Request, res: Response) => {
   }
 });
 
-// Get purchase history by user email
-app.get('/api/purchase-history', async (req: Request, res: Response) => {
+// Get purchase history by user email (JWT verified)
+app.get('/api/purchase-history', verifyJWT, async (req: AuthRequest, res: Response) => {
   try {
     const { pursessCollection } = await import('./server');
     const { email } = req.query;
@@ -467,6 +518,12 @@ app.get('/api/purchase-history', async (req: Request, res: Response) => {
         success: false,
         message: 'User email is required',
       });
+      return;
+    }
+
+    // Verify email matches JWT
+    if (req.user?.email !== email) {
+      res.status(403).json({ success: false, message: 'Forbidden access: Email mismatch' });
       return;
     }
 
@@ -484,14 +541,20 @@ app.get('/api/purchase-history', async (req: Request, res: Response) => {
   }
 });
 
-// Create contact message
-app.post('/api/contacts', async (req: Request, res: Response) => {
+// Create contact message (JWT verified)
+app.post('/api/contacts', verifyJWT, async (req: AuthRequest, res: Response) => {
   try {
     const { contactsCollection } = await import('./server');
     const { name, email, subject, message } = req.body;
 
     if (!email || !message) {
       res.status(400).json({ success: false, message: 'Email and Message are required' });
+      return;
+    }
+
+    // Verify email matches JWT
+    if (req.user?.email !== email) {
+      res.status(403).json({ success: false, message: 'Forbidden access: Email mismatch' });
       return;
     }
 
@@ -516,8 +579,8 @@ app.post('/api/contacts', async (req: Request, res: Response) => {
   }
 });
 
-// Get all contact messages for admin
-app.get('/api/contacts', async (req: Request, res: Response) => {
+// Get all contact messages for admin (Admin only)
+app.get('/api/contacts', verifyJWT, verifyAdmin, async (req: AuthRequest, res: Response) => {
   try {
     const { contactsCollection } = await import('./server');
     const contacts = await contactsCollection.find({}).toArray();
@@ -531,14 +594,20 @@ app.get('/api/contacts', async (req: Request, res: Response) => {
   }
 });
 
-// Get contact messages by user email
-app.get('/api/contacts/user', async (req: Request, res: Response) => {
+// Get contact messages by user email (JWT verified)
+app.get('/api/contacts/user', verifyJWT, async (req: AuthRequest, res: Response) => {
   try {
     const { contactsCollection } = await import('./server');
     const { email } = req.query;
 
     if (!email) {
       res.status(400).json({ success: false, message: 'User email is required' });
+      return;
+    }
+
+    // Verify email matches JWT
+    if (req.user?.email !== email) {
+      res.status(403).json({ success: false, message: 'Forbidden access: Email mismatch' });
       return;
     }
 
@@ -553,8 +622,8 @@ app.get('/api/contacts/user', async (req: Request, res: Response) => {
   }
 });
 
-// Reply to contact message
-app.patch('/api/contacts/:id/reply', async (req: Request, res: Response) => {
+// Reply to contact message (Admin only)
+app.patch('/api/contacts/:id/reply', verifyJWT, verifyAdmin, async (req: AuthRequest, res: Response) => {
   try {
     const { contactsCollection } = await import('./server');
     const { id } = req.params;
@@ -589,8 +658,8 @@ app.patch('/api/contacts/:id/reply', async (req: Request, res: Response) => {
   }
 });
 
-// Get all purchases for admin
-app.get('/api/admin/purchases', async (req: Request, res: Response) => {
+// Get all purchases for admin (Admin only)
+app.get('/api/admin/purchases', verifyJWT, verifyAdmin, async (req: AuthRequest, res: Response) => {
   try {
     const { pursessCollection } = await import('./server');
     const purchases = await pursessCollection.find({}).toArray();
