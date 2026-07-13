@@ -589,6 +589,24 @@ app.patch('/api/contacts/:id/reply', async (req: Request, res: Response) => {
   }
 });
 
+// Get all purchases for admin
+app.get('/api/admin/purchases', async (req: Request, res: Response) => {
+  try {
+    const { pursessCollection } = await import('./server');
+    const purchases = await pursessCollection.find({}).toArray();
+    res.status(200).json({
+      success: true,
+      message: 'All purchases fetched successfully',
+      data: purchases
+    });
+  } catch (error: any) {
+    res.status(500).json({
+      success: false,
+      message: error?.message || 'Failed to fetch all purchases'
+    });
+  }
+});
+
 // 404 Route handler
 app.use((req: Request, res: Response) => {
   res.status(404).json({
