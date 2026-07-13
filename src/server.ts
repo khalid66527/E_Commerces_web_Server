@@ -8,7 +8,7 @@ const port = process.env.PORT || 5000;
 const uri = process.env.MONGO_DB_URI;
 
 if (!uri) {
-  console.error("MONGO_DB_URI is not defined in .env file.");
+  console.error("MONGO_DB_URI is not defined in .env file. Environment keys:", Object.keys(process.env));
   process.exit(1);
 }
 
@@ -39,9 +39,11 @@ async function run() {
     await db.command({ ping: 1 });
     console.log("Successfully connected to MongoDB!");
 
-    app.listen(port, () => {
-      console.log(`Server is running on http://localhost:${port}`);
-    });
+    if (process.env.VERCEL !== '1') {
+      app.listen(port, () => {
+        console.log(`Server is running on http://localhost:${port}`);
+      });
+    }
   } catch (error) {
     console.error("Database connection failed:", error);
     process.exit(1);

@@ -2,6 +2,9 @@
   "name": "e-commerce-server",
   "version": "1.0.0",
   "description": "",
+  "engines": {
+    "node": "20.x"
+  },
   "main": "index.js",
   "scripts": {
     "dev": "tsx watch src/server.ts",
@@ -26,6 +29,6 @@
     "@types/jsonwebtoken": "^9.0.10",
     "@types/node": "^26.1.1",
     "tsx": "^4.23.0",
-    "typescript": "^7.0.2"
+    "typescript": "^5.5.4"
   }
 }

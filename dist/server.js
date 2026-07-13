@@ -37,9 +37,11 @@ async function run() {
         // Ping database to verify connection
         await exports.db.command({ ping: 1 });
         console.log("Successfully connected to MongoDB!");
-        app_1.default.listen(port, () => {
-            console.log(`Server is running on http://localhost:${port}`);
-        });
+        if (process.env.VERCEL !== '1') {
+            app_1.default.listen(port, () => {
+                console.log(`Server is running on http://localhost:${port}`);
+            });
+        }
     }
     catch (error) {
         console.error("Database connection failed:", error);
